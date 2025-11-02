@@ -4,7 +4,7 @@ services:
     env: python
     region: oregon
     buildCommand: "./build.sh && pip install -r requirements.txt"
-    startCommand: "gunicorn --chdir backend main:app"
+    startCommand: "gunicorn wsgi:app"
     envVars:
       - key: GEMINI_API_KEY
         sync: false

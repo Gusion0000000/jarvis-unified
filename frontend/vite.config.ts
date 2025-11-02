@@ -21,7 +21,7 @@ export default defineConfig({
     // Other functionalities that might still use this service will fail gracefully,
     // but the app itself will load. This is required because of the strict
     // check in services/geminiService.ts which cannot be modified.
-    'process.env.API_KEY': JSON.stringify('DUMMY_KEY_FOR_BUILD'),
+    'process.env.API_KEY': JSON.stringify('SUA_CHAVE_REAL_DA_API_GEMINI_AQUI'),
     'process.env.GEMINI_API_KEY': JSON.stringify('DUMMY_KEY_FOR_BUILD')
   },
   resolve: {

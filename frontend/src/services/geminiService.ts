@@ -20,11 +20,9 @@ const getVeoAiClient = async () => {
 
 export const generateText = async (prompt: string, modelName: 'gemini-2.5-pro' | 'gemini-flash-lite-latest' = 'gemini-flash-lite-latest'): Promise<string> => {
     try {
-        const response = await ai.models.generateContent({
-            model: modelName,
-            contents: prompt,
-        });
-        return response.text;
+        const model = ai.getGenerativeModel({ model: modelName });
+        const response = await model.generateContent(prompt);
+        return response.response.text();
     } catch (error) {
         console.error("Erro na geração de texto:", error);
         throw new Error("Não foi possível gerar texto.");
@@ -33,14 +31,15 @@ export const generateText = async (prompt: string, modelName: 'gemini-2.5-pro' |
 
 export const generateComplexText = async (prompt: string): Promise<string> => {
     try {
-        const response = await ai.models.generateContent({
+        const model = ai.getGenerativeModel({ 
             model: 'gemini-2.5-pro',
-            contents: prompt,
-            config: {
+            generationConfig: {
+                // @ts-ignore
                 thinkingConfig: { thinkingBudget: 32768 }
             }
         });
-        return response.text;
+        const response = await model.generateContent(prompt);
+        return response.response.text();
     } catch (error) {
         console.error("Erro na geração de texto complexo:", error);
         throw new Error("Não foi possível gerar texto complexo.");
@@ -50,15 +49,13 @@ export const generateComplexText = async (prompt: string): Promise<string> => {
 
 export const generateTextWithGoogleSearch = async (prompt: string): Promise<{ text: string, sources: GroundingChunk[] }> => {
     try {
-        const response = await ai.models.generateContent({
+        const model = ai.getGenerativeModel({ 
             model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                tools: [{ googleSearch: {} }],
-            },
+            tools: [{ googleSearch: {} }]
         });
-        const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-        return { text: response.text, sources: sources as GroundingChunk[] };
+        const response = await model.generateContent(prompt);
+        const sources = response.response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+        return { text: response.response.text(), sources: sources as GroundingChunk[] };
     } catch (error) {
         console.error("Erro na busca do Google:", error);
         throw new Error("Não foi possível realizar a busca.");
@@ -75,20 +72,18 @@ export const generateTextWithGoogleMaps = async (prompt: string): Promise<{ text
         navigator.geolocation.getCurrentPosition(async (position) => {
             try {
                 const { latitude, longitude } = position.coords;
-                const response = await ai.models.generateContent({
+                const model = ai.getGenerativeModel({ 
                     model: "gemini-2.5-flash",
-                    contents: prompt,
-                    config: {
-                        tools: [{ googleMaps: {} }],
-                        toolConfig: {
-                            retrievalConfig: {
-                                latLng: { latitude, longitude }
-                            }
+                    tools: [{ googleMaps: {} }],
+                    toolConfig: {
+                        retrievalConfig: {
+                            latLng: { latitude, longitude }
                         }
-                    },
+                    }
                 });
-                const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-                resolve({ text: response.text, sources: sources as GroundingChunk[] });
+                const response = await model.generateContent(prompt);
+                const sources = response.response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+                resolve({ text: response.response.text(), sources: sources as GroundingChunk[] });
             } catch (error) {
                 console.error("Erro na busca do Maps:", error);
                 reject(new Error("Não foi possível realizar a busca no Maps."));
@@ -104,14 +99,13 @@ export const generateTextWithGoogleMaps = async (prompt: string): Promise<{ text
 
 export const generateImage = async (prompt: string, aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4' = '1:1'): Promise<string> => {
     try {
-        const response = await ai.models.generateImages({
-            model: 'imagen-4.0-generate-001',
+        const model = ai.getGenerativeModel({ model: 'imagen-4.0-generate-001' });
+        // @ts-ignore
+        const response = await model.generateImages({
             prompt: prompt,
-            config: {
-                numberOfImages: 1,
-                outputMimeType: 'image/jpeg',
-                aspectRatio: aspectRatio,
-            },
+            numberOfImages: 1,
+            outputMimeType: 'image/jpeg',
+            aspectRatio: aspectRatio,
         });
         return response.generatedImages[0].image.imageBytes;
     } catch (error) {
@@ -123,16 +117,12 @@ export const generateImage = async (prompt: string, aspectRatio: '1:1' | '16:9' 
 export const analyzeImage = async (prompt: string, image: File): Promise<string> => {
     try {
         const base64Image = await toBase64(image) as string;
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: {
-                parts: [
-                    { text: prompt },
-                    { inlineData: { mimeType: image.type, data: base64Image } }
-                ]
-            },
-        });
-        return response.text;
+        const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const response = await model.generateContent([
+            { text: prompt },
+            { inlineData: { mimeType: image.type, data: base64Image } }
+        ]);
+        return response.response.text();
     } catch (error) {
         console.error("Erro na análise de imagem:", error);
         throw new Error("Não foi possível analisar a imagem.");
@@ -142,20 +132,18 @@ export const analyzeImage = async (prompt: string, image: File): Promise<string>
 export const editImage = async (prompt: string, image: File): Promise<string> => {
     try {
         const base64Image = await toBase64(image) as string;
-        const response = await ai.models.generateContent({
+        const model = ai.getGenerativeModel({ 
             model: 'gemini-2.5-flash-image',
-            contents: {
-                parts: [
-                    { inlineData: { mimeType: image.type, data: base64Image } },
-                    { text: prompt },
-                ],
-            },
-            config: {
+            generationConfig: {
                 responseModalities: [Modality.IMAGE],
-            },
+            }
         });
+        const response = await model.generateContent([
+            { inlineData: { mimeType: image.type, data: base64Image } },
+            { text: prompt },
+        ]);
 
-        const part = response.candidates?.[0]?.content?.parts.find(p => p.inlineData);
+        const part = response.response.candidates?.[0]?.content?.parts.find(p => p.inlineData);
         if (part && part.inlineData) {
             return part.inlineData.data;
         }
@@ -197,15 +185,13 @@ const pollVideoOperation = async (operation: any): Promise<string> => {
 export const generateVideoFromText = async (prompt: string, aspectRatio: '16:9' | '9:16'): Promise<string> => {
     try {
         const veoAI = await getVeoAiClient();
+        const model = veoAI.getGenerativeModel({ model: 'veo-3.1-fast-generate-preview' });
         // @ts-ignore
-        const operation = await veoAI.models.generateVideos({
-            model: 'veo-3.1-fast-generate-preview',
+        const operation = await model.generateVideos({
             prompt: prompt,
-            config: {
-                numberOfVideos: 1,
-                resolution: '720p',
-                aspectRatio: aspectRatio,
-            }
+            numberOfVideos: 1,
+            resolution: '720p',
+            aspectRatio: aspectRatio,
         });
         return await pollVideoOperation(operation);
     } catch (error) {
@@ -219,19 +205,17 @@ export const generateVideoFromImage = async (prompt: string, image: File, aspect
     try {
         const base64Image = await toBase64(image) as string;
         const veoAI = await getVeoAiClient();
+        const model = veoAI.getGenerativeModel({ model: 'veo-3.1-fast-generate-preview' });
         // @ts-ignore
-        const operation = await veoAI.models.generateVideos({
-            model: 'veo-3.1-fast-generate-preview',
+        const operation = await model.generateVideos({
             prompt: prompt,
             image: {
                 imageBytes: base64Image,
                 mimeType: image.type,
             },
-            config: {
-                numberOfVideos: 1,
-                resolution: '720p',
-                aspectRatio: aspectRatio,
-            }
+            numberOfVideos: 1,
+            resolution: '720p',
+            aspectRatio: aspectRatio,
         });
         return await pollVideoOperation(operation);
     } catch (error) {
@@ -245,20 +229,20 @@ export const generateVideoFromImage = async (prompt: string, image: File, aspect
 
 export const textToSpeech = async (text: string): Promise<AudioBuffer> => {
      try {
-         const response = await ai.models.generateContent({
+         const model = ai.getGenerativeModel({ 
              model: "gemini-2.5-flash-preview-tts",
-             contents: [{ parts: [{ text: text }] }],
-             config: {
+             generationConfig: {
                  responseModalities: [Modality.AUDIO],
                  speechConfig: {
                      voiceConfig: {
                          prebuiltVoiceConfig: { voiceName: 'Kore' },
                      },
                  },
-             },
+             }
          });
+         const response = await model.generateContent([{ text: text }]);
 
-         const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+         const base64Audio = response.response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
          if (!base64Audio) {
              throw new Error("Nenhum dado de áudio retornado.");
          }
